@@ -234,13 +234,13 @@
 <body>
     <div id="gameContainer">
         <!-- Landscape Canvases -->
-        <canvas id="spaceCanvas" class="landscape active" width="1920" height="1080"></canvas>
-        <canvas id="mountainCanvas" class="landscape" width="1920" height="1080"></canvas>
-        <canvas id="desertCanvas" class="landscape" width="1920" height="1080"></canvas>
-        <canvas id="oceanCanvas" class="landscape" width="1920" height="1080"></canvas>
+        <canvas id="spaceCanvas" class="landscape active" width="800" height="600"></canvas>
+        <canvas id="mountainCanvas" class="landscape" width="800" height="600"></canvas>
+        <canvas id="desertCanvas" class="landscape" width="800" height="600"></canvas>
+        <canvas id="oceanCanvas" class="landscape" width="800" height="600"></canvas>
 
         <!-- Cockpit Overlay -->
-        <canvas id="cockpit" width="1920" height="1080"></canvas>
+        <canvas id="cockpit" width="800" height="600"></canvas>
 
         <!-- HUD -->
         <div id="hud">
@@ -574,11 +574,7 @@
             }
         }
 
-        // Initialize arrays before first resize
-        initStars();
-        initWaves();
-        
-        // Now call resize which will redraw everything
+        // Call resize which will initialize arrays and draw everything
         resizeCanvases();
 
         function drawOcean() {
