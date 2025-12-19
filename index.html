@@ -133,6 +133,75 @@
             transform: translateY(-50%);
         }
 
+        /* Start Screen */
+        #startScreen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #0f0f1e 100%);
+            z-index: 400;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        #startScreen.hidden {
+            display: none;
+        }
+
+        #startScreen h1 {
+            font-size: 48px;
+            color: #0ff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        #startScreen p {
+            font-size: 18px;
+            color: #0ff;
+            margin-bottom: 40px;
+            text-align: center;
+            max-width: 600px;
+            line-height: 1.6;
+        }
+
+        #startMissionBtn {
+            padding: 20px 40px;
+            font-size: 24px;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1e);
+            color: #0ff;
+            border: 3px solid #0ff;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            }
+            50% {
+                box-shadow: 0 0 40px rgba(0, 255, 255, 0.8);
+            }
+        }
+
+        #startMissionBtn:hover {
+            background: linear-gradient(145deg, #0f5f5f, #0a4a4a);
+            box-shadow: 0 0 50px rgba(0, 255, 255, 1);
+            transform: scale(1.1);
+        }
+
         /* Control Panel */
         #controls {
             position: absolute;
@@ -229,9 +298,91 @@
             );
             z-index: 250;
         }
+
+        /* Arrow Key Indicators */
+        #arrowIndicators {
+            position: absolute;
+            bottom: 100px;
+            right: 150px;
+            z-index: 300;
+            pointer-events: none;
+        }
+
+        .arrow-indicator {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 255, 0.2);
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #0ff;
+            transition: all 0.2s;
+        }
+
+        .arrow-indicator.active {
+            background: rgba(0, 255, 255, 0.6);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            transform: scale(1.1);
+        }
+
+        #arrowUp {
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #arrowDown {
+            bottom: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        #arrowLeft {
+            left: -60px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #arrowRight {
+            right: -60px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Movement Feedback */
+        #movementFeedback {
+            position: absolute;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 300;
+            color: #0ff;
+            font-size: 18px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid rgba(0, 255, 255, 0.5);
+            border-radius: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        #movementFeedback.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
+    <!-- Start Screen -->
+    <div id="startScreen">
+        <h1>🚀 Mission Control 🚀</h1>
+        <p>Welcome to Mission Control. Prepare for your mission across multiple environments including space, mountains, desert, and ocean. Use arrow keys to navigate and control your vessel.</p>
+        <button id="startMissionBtn">Start Mission</button>
+    </div>
+
     <div id="gameContainer">
         <!-- Landscape Canvases -->
         <canvas id="spaceCanvas" class="landscape active" width="800" height="600"></canvas>
@@ -279,6 +430,17 @@
             <button class="control-btn" data-scene="desert">🏜️ DESERT</button>
             <button class="control-btn" data-scene="ocean">🌊 OCEAN</button>
         </div>
+
+        <!-- Arrow Key Indicators -->
+        <div id="arrowIndicators">
+            <div class="arrow-indicator" id="arrowUp">▲</div>
+            <div class="arrow-indicator" id="arrowDown">▼</div>
+            <div class="arrow-indicator" id="arrowLeft">◄</div>
+            <div class="arrow-indicator" id="arrowRight">►</div>
+        </div>
+
+        <!-- Movement Feedback -->
+        <div id="movementFeedback"></div>
     </div>
 
     <script>
@@ -641,7 +803,7 @@
             ctx.fillRect(sunX - 50, height * 0.5, 100, height * 0.3);
         }
 
-        // Draw cockpit overlay
+        // Draw cockpit overlay based on environment
         function drawCockpit() {
             const ctx = cockpitCtx;
             const width = cockpitCanvas.width;
@@ -649,45 +811,201 @@
             
             ctx.clearRect(0, 0, width, height);
             
-            // Cockpit frame - dark vignette
+            // Draw environment-specific cockpit
+            switch(currentScene) {
+                case 'space':
+                    drawSpaceshipCockpit(ctx, width, height);
+                    break;
+                case 'mountain':
+                case 'desert':
+                    drawF16Cockpit(ctx, width, height);
+                    break;
+                case 'ocean':
+                    drawBoeing747Cockpit(ctx, width, height);
+                    break;
+            }
+        }
+
+        // Spaceship cockpit (for space missions)
+        function drawSpaceshipCockpit(ctx, width, height) {
+            // Futuristic vignette
+            const vignetteGradient = ctx.createRadialGradient(
+                width / 2, height / 2, Math.min(width, height) * 0.25,
+                width / 2, height / 2, Math.min(width, height) * 0.65
+            );
+            vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            vignetteGradient.addColorStop(1, 'rgba(0, 20, 40, 0.8)');
+            ctx.fillStyle = vignetteGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Circular viewport frame
+            ctx.strokeStyle = 'rgba(0, 100, 150, 0.8)';
+            ctx.lineWidth = 12;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, Math.min(width, height) * 0.4, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Inner glow
+            ctx.strokeStyle = 'rgba(0, 200, 255, 0.3)';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(width / 2, height / 2, Math.min(width, height) * 0.41, 0, Math.PI * 2);
+            ctx.stroke();
+            
+            // Top and bottom panels with tech detail
+            ctx.fillStyle = 'rgba(10, 30, 50, 0.9)';
+            ctx.fillRect(0, 0, width, 60);
+            ctx.fillRect(0, height - 60, width, 60);
+            
+            // Panel lights
+            for (let i = 0; i < 10; i++) {
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(0, 255, 255, 0.6)' : 'rgba(0, 150, 255, 0.6)';
+                ctx.fillRect(width * 0.1 + i * (width * 0.08), 20, width * 0.03, 20);
+                ctx.fillRect(width * 0.1 + i * (width * 0.08), height - 40, width * 0.03, 20);
+            }
+            
+            // Side consoles
+            ctx.fillStyle = 'rgba(15, 35, 55, 0.95)';
+            ctx.fillRect(0, 0, 80, height);
+            ctx.fillRect(width - 80, 0, 80, height);
+            
+            // Console details
+            ctx.fillStyle = 'rgba(0, 200, 255, 0.4)';
+            for (let i = 1; i < 8; i++) {
+                ctx.fillRect(10, height * 0.15 * i, 60, height * 0.08);
+                ctx.fillRect(width - 70, height * 0.15 * i, 60, height * 0.08);
+            }
+        }
+
+        // F16 Raptor cockpit (for desert and mountain missions)
+        function drawF16Cockpit(ctx, width, height) {
+            // Military vignette
             const vignetteGradient = ctx.createRadialGradient(
                 width / 2, height / 2, Math.min(width, height) * 0.3,
                 width / 2, height / 2, Math.min(width, height) * 0.7
             );
             vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
-            vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+            vignetteGradient.addColorStop(1, 'rgba(20, 40, 20, 0.75)');
             ctx.fillStyle = vignetteGradient;
             ctx.fillRect(0, 0, width, height);
             
-            // Cockpit structural elements
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-            ctx.lineWidth = 8;
+            // Canopy frame (angular fighter jet style)
+            ctx.strokeStyle = 'rgba(50, 50, 50, 0.9)';
+            ctx.lineWidth = 10;
             
-            // Top bar
+            // Top frame
             ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(width, 0);
-            ctx.lineTo(width, 80);
-            ctx.lineTo(0, 80);
+            ctx.moveTo(width * 0.3, 0);
+            ctx.lineTo(width * 0.7, 0);
+            ctx.lineTo(width * 0.75, height * 0.15);
+            ctx.lineTo(width * 0.25, height * 0.15);
             ctx.closePath();
-            ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
+            ctx.fillStyle = 'rgba(30, 40, 30, 0.85)';
             ctx.fill();
             ctx.stroke();
             
-            // Bottom bar
+            // Bottom instrument panel
             ctx.beginPath();
-            ctx.moveTo(0, height - 80);
-            ctx.lineTo(width, height - 80);
+            ctx.moveTo(0, height - 100);
+            ctx.lineTo(width, height - 100);
             ctx.lineTo(width, height);
             ctx.lineTo(0, height);
             ctx.closePath();
+            ctx.fillStyle = 'rgba(25, 35, 25, 0.9)';
             ctx.fill();
             ctx.stroke();
             
+            // Instrument gauges
+            const gaugeY = height - 50;
+            for (let i = 0; i < 5; i++) {
+                const x = width * 0.2 + i * (width * 0.15);
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(x, gaugeY, 25, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // Gauge needle
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.7)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x, gaugeY);
+                ctx.lineTo(x + 15, gaugeY - 15);
+                ctx.stroke();
+            }
+            
+            // Side panels (narrower for fighter jet)
+            ctx.fillStyle = 'rgba(35, 45, 35, 0.9)';
+            ctx.fillRect(0, 0, 60, height);
+            ctx.fillRect(width - 60, 0, 60, height);
+        }
+
+        // Boeing 747 cockpit (for ocean missions)
+        function drawBoeing747Cockpit(ctx, width, height) {
+            // Commercial aircraft vignette
+            const vignetteGradient = ctx.createRadialGradient(
+                width / 2, height / 2, Math.min(width, height) * 0.35,
+                width / 2, height / 2, Math.min(width, height) * 0.7
+            );
+            vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            vignetteGradient.addColorStop(1, 'rgba(40, 40, 60, 0.7)');
+            ctx.fillStyle = vignetteGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Windscreen frames (divided cockpit windows)
+            ctx.strokeStyle = 'rgba(60, 60, 80, 0.9)';
+            ctx.lineWidth = 12;
+            
+            // Center post
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height * 0.3);
+            ctx.stroke();
+            
+            // Top frame
+            ctx.fillStyle = 'rgba(40, 45, 60, 0.85)';
+            ctx.fillRect(0, 0, width, 70);
+            
+            // Main instrument panel (wide commercial style)
+            ctx.fillStyle = 'rgba(35, 40, 55, 0.9)';
+            ctx.fillRect(0, height - 120, width, 120);
+            
+            // Primary Flight Display and Navigation Display
+            for (let i = 0; i < 4; i++) {
+                const x = width * 0.15 + i * (width * 0.2);
+                const y = height - 60;
+                
+                // Display screens
+                ctx.fillStyle = 'rgba(0, 50, 80, 0.8)';
+                ctx.fillRect(x - 50, y - 40, 100, 80);
+                
+                // Screen border
+                ctx.strokeStyle = 'rgba(100, 150, 200, 0.6)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x - 50, y - 40, 100, 80);
+                
+                // Screen content lines
+                ctx.strokeStyle = 'rgba(0, 200, 255, 0.4)';
+                ctx.lineWidth = 1;
+                for (let j = 0; j < 3; j++) {
+                    ctx.beginPath();
+                    ctx.moveTo(x - 40, y - 30 + j * 25);
+                    ctx.lineTo(x + 40, y - 30 + j * 25);
+                    ctx.stroke();
+                }
+            }
+            
             // Side panels
-            ctx.fillStyle = 'rgba(30, 30, 30, 0.9)';
-            ctx.fillRect(0, 0, 100, height);
-            ctx.fillRect(width - 100, 0, 100, height);
+            ctx.fillStyle = 'rgba(45, 50, 65, 0.9)';
+            ctx.fillRect(0, 0, 90, height);
+            ctx.fillRect(width - 90, 0, 90, height);
+            
+            // Overhead panel indicators
+            for (let i = 0; i < 12; i++) {
+                const x = width * 0.2 + i * (width * 0.05);
+                ctx.fillStyle = i % 3 === 0 ? 'rgba(255, 200, 0, 0.5)' : 'rgba(0, 255, 0, 0.4)';
+                ctx.fillRect(x, 30, width * 0.03, 15);
+            }
         }
 
         // Update HUD values
@@ -750,6 +1068,9 @@
             });
             document.querySelector(`[data-scene="${sceneName}"]`).classList.add('active');
             
+            // Redraw cockpit for the new environment
+            drawCockpit();
+            
             updateHUD();
         }
 
@@ -787,12 +1108,91 @@
             requestAnimationFrame(animate);
         }
 
-        // Initialize HUD and start animation
-        updateHUD();
-        animate();
+        // Start button handler
+        document.getElementById('startMissionBtn').addEventListener('click', () => {
+            document.getElementById('startScreen').classList.add('hidden');
+        });
+
+        // Movement state
+        let movement = {
+            x: 0,
+            y: 0,
+            rotation: 0
+        };
+
+        // Arrow key controls
+        function handleMovement(direction) {
+            const movementFeedback = document.getElementById('movementFeedback');
+            let message = '';
+            
+            switch(direction) {
+                case 'up':
+                    if (currentScene === 'space' || currentScene === 'mountain') {
+                        movement.y -= 10;
+                        altitude += 100;
+                        message = '⬆️ ASCENDING';
+                    } else {
+                        movement.y -= 10;
+                        speed += 10;
+                        message = '⬆️ MOVING FORWARD';
+                    }
+                    break;
+                case 'down':
+                    if (currentScene === 'space' || currentScene === 'mountain') {
+                        movement.y += 10;
+                        altitude = Math.max(0, altitude - 100);
+                        message = '⬇️ DESCENDING';
+                    } else {
+                        movement.y += 10;
+                        speed = Math.max(0, speed - 10);
+                        message = '⬇️ MOVING BACKWARD';
+                    }
+                    break;
+                case 'left':
+                    movement.x -= 10;
+                    movement.rotation -= 5;
+                    message = '⬅️ STEERING LEFT';
+                    break;
+                case 'right':
+                    movement.x += 10;
+                    movement.rotation += 5;
+                    message = '➡️ STEERING RIGHT';
+                    break;
+            }
+            
+            // Update HUD with new values
+            updateHUD();
+            
+            // Show movement feedback
+            movementFeedback.textContent = message;
+            movementFeedback.classList.add('show');
+            setTimeout(() => {
+                movementFeedback.classList.remove('show');
+            }, 1000);
+        }
 
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
+            // Arrow key controls
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                document.getElementById('arrowUp').classList.add('active');
+                handleMovement('up');
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                document.getElementById('arrowDown').classList.add('active');
+                handleMovement('down');
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                document.getElementById('arrowLeft').classList.add('active');
+                handleMovement('left');
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                document.getElementById('arrowRight').classList.add('active');
+                handleMovement('right');
+            }
+            
+            // Scene switching with number keys
             switch(e.key) {
                 case '1':
                     switchScene('space');
@@ -808,6 +1208,23 @@
                     break;
             }
         });
+
+        // Remove arrow indicator active state on keyup
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowUp') {
+                document.getElementById('arrowUp').classList.remove('active');
+            } else if (e.key === 'ArrowDown') {
+                document.getElementById('arrowDown').classList.remove('active');
+            } else if (e.key === 'ArrowLeft') {
+                document.getElementById('arrowLeft').classList.remove('active');
+            } else if (e.key === 'ArrowRight') {
+                document.getElementById('arrowRight').classList.remove('active');
+            }
+        });
+
+        // Initialize HUD and start animation
+        updateHUD();
+        animate();
     </script>
 </body>
 </html>
