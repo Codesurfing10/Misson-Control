@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mission Control - Cockpit Simulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Landscape Canvases */
+        .landscape {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.5s ease-in-out;
+        }
+
+        .landscape.active {
+            opacity: 1;
+        }
+
+        /* Cockpit Overlay */
+        #cockpit {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* HUD Elements */
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        .hud-corner {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+        }
+
+        .hud-corner.top-left {
+            top: 20px;
+            left: 20px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .hud-corner.top-right {
+            top: 20px;
+            right: 20px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .hud-corner.bottom-left {
+            bottom: 20px;
+            left: 20px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .hud-corner.bottom-right {
+            bottom: 20px;
+            right: 20px;
+            border-left: none;
+            border-top: none;
+        }
+
+        .hud-info {
+            position: absolute;
+            color: #0ff;
+            font-size: 14px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.7);
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        #locationDisplay {
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        #stats {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+        }
+
+        #speedometer {
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+        }
+
+        #altitude {
+            top: 50%;
+            left: 20px;
+            transform: translateY(-50%);
+        }
+
+        /* Control Panel */
+        #controls {
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform: translate(-50%, 50%);
+            z-index: 300;
+            pointer-events: auto;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 600px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            border-radius: 10px;
+        }
+
+        .control-btn {
+            padding: 15px 25px;
+            font-size: 16px;
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(145deg, #1a1a2e, #0f0f1e);
+            color: #0ff;
+            border: 2px solid #0ff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            font-weight: bold;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+
+        .control-btn:hover {
+            background: linear-gradient(145deg, #0f0f1e, #1a1a2e);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(145deg, #0f5f5f, #0a4a4a);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.9);
+        }
+
+        /* Crosshair */
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 40px;
+            pointer-events: none;
+        }
+
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: rgba(0, 255, 255, 0.6);
+        }
+
+        .crosshair::before {
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+
+        .crosshair::after {
+            left: 50%;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            transform: translateX(-50%);
+        }
+
+        /* Scanlines effect */
+        #scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 0, 0, 0.15),
+                rgba(0, 0, 0, 0.15) 1px,
+                transparent 1px,
+                transparent 2px
+            );
+            z-index: 250;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <!-- Landscape Canvases -->
+        <canvas id="spaceCanvas" class="landscape active" width="1920" height="1080"></canvas>
+        <canvas id="mountainCanvas" class="landscape" width="1920" height="1080"></canvas>
+        <canvas id="desertCanvas" class="landscape" width="1920" height="1080"></canvas>
+        <canvas id="oceanCanvas" class="landscape" width="1920" height="1080"></canvas>
+
+        <!-- Cockpit Overlay -->
+        <canvas id="cockpit" width="1920" height="1080"></canvas>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div class="hud-corner top-left"></div>
+            <div class="hud-corner top-right"></div>
+            <div class="hud-corner bottom-left"></div>
+            <div class="hud-corner bottom-right"></div>
+            
+            <div class="hud-info" id="locationDisplay">SPACE SECTOR</div>
+            
+            <div class="hud-info" id="altitude">
+                <div>ALTITUDE</div>
+                <div id="altValue">0 m</div>
+            </div>
+            
+            <div class="hud-info" id="speedometer">
+                <div>VELOCITY</div>
+                <div id="speedValue">0 km/h</div>
+            </div>
+            
+            <div class="hud-info" id="stats">
+                <div>COORDINATES: <span id="coords">0, 0</span></div>
+                <div>TIME: <span id="time">00:00</span></div>
+            </div>
+            
+            <div class="crosshair"></div>
+        </div>
+
+        <!-- Scanlines -->
+        <div id="scanlines"></div>
+
+        <!-- Controls -->
+        <div id="controls">
+            <button class="control-btn active" data-scene="space">🌌 SPACE</button>
+            <button class="control-btn" data-scene="mountain">⛰️ MOUNTAINS</button>
+            <button class="control-btn" data-scene="desert">🏜️ DESERT</button>
+            <button class="control-btn" data-scene="ocean">🌊 OCEAN</button>
+        </div>
+    </div>
+
+    <script>
+        // Get all canvases and contexts
+        const spaceCanvas = document.getElementById('spaceCanvas');
+        const mountainCanvas = document.getElementById('mountainCanvas');
+        const desertCanvas = document.getElementById('desertCanvas');
+        const oceanCanvas = document.getElementById('oceanCanvas');
+        const cockpitCanvas = document.getElementById('cockpit');
+
+        const spaceCtx = spaceCanvas.getContext('2d');
+        const mountainCtx = mountainCanvas.getContext('2d');
+        const desertCtx = desertCanvas.getContext('2d');
+        const oceanCtx = oceanCanvas.getContext('2d');
+        const cockpitCtx = cockpitCanvas.getContext('2d');
+
+        // Animation variables
+        let currentScene = 'space';
+        let animationFrame = 0;
+        let speed = 250;
+        let altitude = 15000;
+
+        // Space Scene
+        let stars = [];
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({
+                    x: Math.random() * spaceCanvas.width,
+                    y: Math.random() * spaceCanvas.height,
+                    z: Math.random() * spaceCanvas.width,
+                    size: Math.random() * 2
+                });
+            }
+        }
+
+        // Resize canvases to match window
+        function resizeCanvases() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+            
+            [spaceCanvas, mountainCanvas, desertCanvas, oceanCanvas, cockpitCanvas].forEach(canvas => {
+                canvas.width = width;
+                canvas.height = height;
+            });
+            
+            // Reinitialize stars and waves with new dimensions
+            initStars();
+            initWaves();
+            
+            drawAllScenes();
+            drawCockpit();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+
+        function drawSpace() {
+            const ctx = spaceCtx;
+            const width = spaceCanvas.width;
+            const height = spaceCanvas.height;
+            
+            // Background gradient
+            const gradient = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, width);
+            gradient.addColorStop(0, '#000428');
+            gradient.addColorStop(1, '#000000');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Animate stars
+            stars.forEach(star => {
+                star.z -= speed / 50;
+                if (star.z <= 0) {
+                    star.z = width;
+                    star.x = Math.random() * width;
+                    star.y = Math.random() * height;
+                }
+                
+                const sx = (star.x - width / 2) * (width / star.z) + width / 2;
+                const sy = (star.y - height / 2) * (width / star.z) + height / 2;
+                const size = (1 - star.z / width) * star.size * 3;
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(sx, sy, size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            
+            // Draw distant planets
+            const planetX = width * 0.7;
+            const planetY = height * 0.3;
+            const planetRadius = 80;
+            
+            const planetGradient = ctx.createRadialGradient(planetX - 20, planetY - 20, 10, planetX, planetY, planetRadius);
+            planetGradient.addColorStop(0, '#ff6b6b');
+            planetGradient.addColorStop(1, '#8b0000');
+            ctx.fillStyle = planetGradient;
+            ctx.beginPath();
+            ctx.arc(planetX, planetY, planetRadius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Small moon
+            const moonX = width * 0.25;
+            const moonY = height * 0.2;
+            ctx.fillStyle = '#aaaaaa';
+            ctx.beginPath();
+            ctx.arc(moonX, moonY, 30, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Mountain Scene
+        function drawMountains() {
+            const ctx = mountainCtx;
+            const width = mountainCanvas.width;
+            const height = mountainCanvas.height;
+            
+            // Sky gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+            skyGradient.addColorStop(0, '#1e3a8a');
+            skyGradient.addColorStop(0.5, '#3b82f6');
+            skyGradient.addColorStop(1, '#93c5fd');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Sun
+            const sunX = width * 0.8;
+            const sunY = height * 0.2;
+            const sunGradient = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 60);
+            sunGradient.addColorStop(0, '#fef08a');
+            sunGradient.addColorStop(1, 'rgba(254, 240, 138, 0)');
+            ctx.fillStyle = sunGradient;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 60, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Clouds
+            drawClouds(ctx, width, height, animationFrame);
+            
+            // Mountains - far background
+            drawMountainLayer(ctx, width, height, 0.5, '#4b5563', 0.4);
+            
+            // Mountains - middle
+            drawMountainLayer(ctx, width, height, 0.55, '#6b7280', 0.3);
+            
+            // Mountains - foreground
+            drawMountainLayer(ctx, width, height, 0.6, '#374151', 0.2);
+            
+            // Ground
+            ctx.fillStyle = '#22543d';
+            ctx.fillRect(0, height * 0.8, width, height * 0.2);
+        }
+
+        function drawMountainLayer(ctx, width, height, startHeight, color, offset) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            
+            const peaks = 5;
+            for (let i = 0; i <= peaks; i++) {
+                const x = (i / peaks) * width;
+                const peakHeight = height * startHeight + Math.sin(i * 1.5 + offset * 10) * height * 0.2;
+                ctx.lineTo(x, peakHeight);
+            }
+            
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Snow caps
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            for (let i = 0; i <= peaks; i++) {
+                const x = (i / peaks) * width;
+                const peakHeight = height * startHeight + Math.sin(i * 1.5 + offset * 10) * height * 0.2;
+                ctx.beginPath();
+                ctx.moveTo(x - 30, peakHeight + 30);
+                ctx.lineTo(x, peakHeight);
+                ctx.lineTo(x + 30, peakHeight + 30);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        function drawClouds(ctx, width, height, frame) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            for (let i = 0; i < 5; i++) {
+                const x = ((i * 250 + frame) % (width + 200)) - 100;
+                const y = height * 0.2 + i * 40;
+                drawCloud(ctx, x, y, 80);
+            }
+        }
+
+        function drawCloud(ctx, x, y, size) {
+            ctx.beginPath();
+            ctx.arc(x, y, size * 0.5, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.4, y, size * 0.6, 0, Math.PI * 2);
+            ctx.arc(x + size * 0.8, y, size * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Desert Scene
+        function drawDesert() {
+            const ctx = desertCtx;
+            const width = desertCanvas.width;
+            const height = desertCanvas.height;
+            
+            // Sky gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.6);
+            skyGradient.addColorStop(0, '#fbbf24');
+            skyGradient.addColorStop(0.3, '#f59e0b');
+            skyGradient.addColorStop(1, '#fef3c7');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Sun
+            const sunX = width * 0.5;
+            const sunY = height * 0.2;
+            const sunGradient = ctx.createRadialGradient(sunX, sunY, 30, sunX, sunY, 100);
+            sunGradient.addColorStop(0, '#fef08a');
+            sunGradient.addColorStop(1, 'rgba(254, 240, 138, 0)');
+            ctx.fillStyle = sunGradient;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 100, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 50, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Sand dunes
+            drawDuneLayer(ctx, width, height, 0.5, '#d97706', 0);
+            drawDuneLayer(ctx, width, height, 0.6, '#ea580c', 0.5);
+            drawDuneLayer(ctx, width, height, 0.7, '#c2410c', 1);
+            
+            // Foreground sand
+            const sandGradient = ctx.createLinearGradient(0, height * 0.75, 0, height);
+            sandGradient.addColorStop(0, '#fed7aa');
+            sandGradient.addColorStop(1, '#fdba74');
+            ctx.fillStyle = sandGradient;
+            ctx.fillRect(0, height * 0.75, width, height * 0.25);
+            
+            // Add cactus
+            drawCactus(ctx, width * 0.2, height * 0.72, 60);
+            drawCactus(ctx, width * 0.8, height * 0.73, 45);
+        }
+
+        function drawDuneLayer(ctx, width, height, baseHeight, color, offset) {
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(0, height);
+            
+            for (let x = 0; x <= width; x += 50) {
+                const y = height * baseHeight + Math.sin((x / 200) + offset * 3 + animationFrame * 0.01) * height * 0.08;
+                ctx.lineTo(x, y);
+            }
+            
+            ctx.lineTo(width, height);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawCactus(ctx, x, y, height) {
+            ctx.fillStyle = '#166534';
+            
+            // Main trunk
+            ctx.fillRect(x - 10, y - height, 20, height);
+            
+            // Left arm
+            ctx.fillRect(x - 35, y - height * 0.7, 15, height * 0.4);
+            ctx.fillRect(x - 35, y - height * 0.7, 25, 15);
+            
+            // Right arm
+            ctx.fillRect(x + 20, y - height * 0.5, 15, height * 0.3);
+            ctx.fillRect(x + 10, y - height * 0.5, 25, 15);
+        }
+
+        // Ocean Scene (moved before resizeCanvases)
+        let waves = [];
+        function initWaves() {
+            waves = [];
+            for (let i = 0; i < 50; i++) {
+                waves.push({
+                    x: Math.random() * oceanCanvas.width,
+                    y: oceanCanvas.height * 0.5 + Math.random() * oceanCanvas.height * 0.3,
+                    speed: 0.5 + Math.random() * 1.5,
+                    amplitude: 5 + Math.random() * 15,
+                    frequency: 0.01 + Math.random() * 0.02
+                });
+            }
+        }
+
+        // Initialize arrays before first resize
+        initStars();
+        initWaves();
+        
+        // Now call resize which will redraw everything
+        resizeCanvases();
+
+        function drawOcean() {
+            const ctx = oceanCtx;
+            const width = oceanCanvas.width;
+            const height = oceanCanvas.height;
+            
+            // Sky gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.5);
+            skyGradient.addColorStop(0, '#0ea5e9');
+            skyGradient.addColorStop(1, '#7dd3fc');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, width, height * 0.5);
+            
+            // Sun
+            const sunX = width * 0.7;
+            const sunY = height * 0.25;
+            const sunGradient = ctx.createRadialGradient(sunX, sunY, 20, sunX, sunY, 70);
+            sunGradient.addColorStop(0, '#fef08a');
+            sunGradient.addColorStop(1, 'rgba(254, 240, 138, 0)');
+            ctx.fillStyle = sunGradient;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 70, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = '#fde047';
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 45, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Ocean - multiple layers
+            const oceanGradient = ctx.createLinearGradient(0, height * 0.5, 0, height);
+            oceanGradient.addColorStop(0, '#0284c7');
+            oceanGradient.addColorStop(0.5, '#0369a1');
+            oceanGradient.addColorStop(1, '#075985');
+            ctx.fillStyle = oceanGradient;
+            ctx.fillRect(0, height * 0.5, width, height * 0.5);
+            
+            // Draw waves
+            waves.forEach(wave => {
+                wave.x -= wave.speed;
+                if (wave.x < -100) wave.x = width + 100;
+                
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                for (let x = -10; x <= 10; x++) {
+                    const waveX = wave.x + x * 10;
+                    const waveY = wave.y + Math.sin(animationFrame * 0.05 + x * wave.frequency) * wave.amplitude;
+                    if (x === -10) {
+                        ctx.moveTo(waveX, waveY);
+                    } else {
+                        ctx.lineTo(waveX, waveY);
+                    }
+                }
+                ctx.stroke();
+            });
+            
+            // Sun reflection
+            const reflectionGradient = ctx.createLinearGradient(sunX, height * 0.5, sunX, height * 0.8);
+            reflectionGradient.addColorStop(0, 'rgba(254, 224, 71, 0.4)');
+            reflectionGradient.addColorStop(1, 'rgba(254, 224, 71, 0)');
+            ctx.fillStyle = reflectionGradient;
+            ctx.fillRect(sunX - 50, height * 0.5, 100, height * 0.3);
+        }
+
+        // Draw cockpit overlay
+        function drawCockpit() {
+            const ctx = cockpitCtx;
+            const width = cockpitCanvas.width;
+            const height = cockpitCanvas.height;
+            
+            ctx.clearRect(0, 0, width, height);
+            
+            // Cockpit frame - dark vignette
+            const vignetteGradient = ctx.createRadialGradient(
+                width / 2, height / 2, Math.min(width, height) * 0.3,
+                width / 2, height / 2, Math.min(width, height) * 0.7
+            );
+            vignetteGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+            vignetteGradient.addColorStop(1, 'rgba(0, 0, 0, 0.7)');
+            ctx.fillStyle = vignetteGradient;
+            ctx.fillRect(0, 0, width, height);
+            
+            // Cockpit structural elements
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.lineWidth = 8;
+            
+            // Top bar
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(width, 0);
+            ctx.lineTo(width, 80);
+            ctx.lineTo(0, 80);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(20, 20, 20, 0.8)';
+            ctx.fill();
+            ctx.stroke();
+            
+            // Bottom bar
+            ctx.beginPath();
+            ctx.moveTo(0, height - 80);
+            ctx.lineTo(width, height - 80);
+            ctx.lineTo(width, height);
+            ctx.lineTo(0, height);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Side panels
+            ctx.fillStyle = 'rgba(30, 30, 30, 0.9)';
+            ctx.fillRect(0, 0, 100, height);
+            ctx.fillRect(width - 100, 0, 100, height);
+        }
+
+        // Update HUD values
+        function updateHUD() {
+            // Update speed based on scene
+            const speeds = {
+                space: 2500,
+                mountain: 250,
+                desert: 180,
+                ocean: 300
+            };
+            speed = speeds[currentScene];
+            
+            // Update altitude based on scene
+            const altitudes = {
+                space: 150000,
+                mountain: 3500,
+                desert: 250,
+                ocean: 500
+            };
+            altitude = altitudes[currentScene];
+            
+            document.getElementById('speedValue').textContent = speed + ' km/h';
+            document.getElementById('altValue').textContent = altitude + ' m';
+            
+            // Random coordinates
+            const x = Math.floor(Math.random() * 1000);
+            const y = Math.floor(Math.random() * 1000);
+            document.getElementById('coords').textContent = `${x}, ${y}`;
+            
+            // Time
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('time').textContent = `${hours}:${minutes}`;
+        }
+
+        // Scene switching
+        function switchScene(sceneName) {
+            currentScene = sceneName;
+            
+            // Update active canvas
+            document.querySelectorAll('.landscape').forEach(canvas => {
+                canvas.classList.remove('active');
+            });
+            document.getElementById(sceneName + 'Canvas').classList.add('active');
+            
+            // Update location display
+            const locationNames = {
+                space: 'SPACE SECTOR',
+                mountain: 'MOUNTAIN RANGE',
+                desert: 'DESERT EXPANSE',
+                ocean: 'OCEAN TERRITORY'
+            };
+            document.getElementById('locationDisplay').textContent = locationNames[sceneName];
+            
+            // Update button states
+            document.querySelectorAll('.control-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`[data-scene="${sceneName}"]`).classList.add('active');
+            
+            updateHUD();
+        }
+
+        // Control button handlers
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const scene = btn.dataset.scene;
+                switchScene(scene);
+            });
+        });
+
+        // Draw all scenes once
+        function drawAllScenes() {
+            drawSpace();
+            drawMountains();
+            drawDesert();
+            drawOcean();
+        }
+
+        // Animation loop
+        function animate() {
+            animationFrame++;
+            
+            // Redraw current active scene
+            if (currentScene === 'space') drawSpace();
+            if (currentScene === 'mountain') drawMountains();
+            if (currentScene === 'desert') drawDesert();
+            if (currentScene === 'ocean') drawOcean();
+            
+            // Update HUD periodically
+            if (animationFrame % 60 === 0) {
+                updateHUD();
+            }
+            
+            requestAnimationFrame(animate);
+        }
+
+        // Initialize HUD and start animation
+        updateHUD();
+        animate();
+
+        // Keyboard controls
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case '1':
+                    switchScene('space');
+                    break;
+                case '2':
+                    switchScene('mountain');
+                    break;
+                case '3':
+                    switchScene('desert');
+                    break;
+                case '4':
+                    switchScene('ocean');
+                    break;
+            }
+        });
+    </script>
+</body>
+</html>
