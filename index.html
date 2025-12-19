@@ -1009,32 +1009,33 @@
         }
 
         // Update HUD values
-        function updateHUD() {
-            // Update speed based on scene
-            const speeds = {
-                space: 2500,
-                mountain: 250,
-                desert: 180,
-                ocean: 300
-            };
-            speed = speeds[currentScene];
-            
-            // Update altitude based on scene
-            const altitudes = {
-                space: 150000,
-                mountain: 3500,
-                desert: 250,
-                ocean: 500
-            };
-            altitude = altitudes[currentScene];
+        function updateHUD(resetValues = false) {
+            // Only reset speed and altitude when switching scenes or on initial load
+            if (resetValues) {
+                const speeds = {
+                    space: 2500,
+                    mountain: 250,
+                    desert: 180,
+                    ocean: 300
+                };
+                speed = speeds[currentScene];
+                
+                const altitudes = {
+                    space: 150000,
+                    mountain: 3500,
+                    desert: 250,
+                    ocean: 500
+                };
+                altitude = altitudes[currentScene];
+            }
             
             document.getElementById('speedValue').textContent = speed + ' km/h';
             document.getElementById('altValue').textContent = altitude + ' m';
             
-            // Random coordinates
-            const x = Math.floor(Math.random() * 1000);
-            const y = Math.floor(Math.random() * 1000);
-            document.getElementById('coords').textContent = `${x}, ${y}`;
+            // Update coordinates based on movement
+            movement.x = (movement.x + 1000) % 1000;
+            movement.y = (movement.y + 1000) % 1000;
+            document.getElementById('coords').textContent = `${Math.floor(movement.x)}, ${Math.floor(movement.y)}`;
             
             // Time
             const now = new Date();
@@ -1071,7 +1072,8 @@
             // Redraw cockpit for the new environment
             drawCockpit();
             
-            updateHUD();
+            // Reset values when switching scenes
+            updateHUD(true);
         }
 
         // Control button handlers
@@ -1223,7 +1225,7 @@
         });
 
         // Initialize HUD and start animation
-        updateHUD();
+        updateHUD(true);
         animate();
     </script>
 </body>
