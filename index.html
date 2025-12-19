@@ -1009,7 +1009,7 @@
         }
 
         // Update HUD values
-        function updateHUD(resetValues = false) {
+        function updateHUD(resetValues = false, updateCoords = false) {
             // Only reset speed and altitude when switching scenes or on initial load
             if (resetValues) {
                 const speeds = {
@@ -1032,10 +1032,12 @@
             document.getElementById('speedValue').textContent = speed + ' km/h';
             document.getElementById('altValue').textContent = altitude + ' m';
             
-            // Update coordinates based on movement
-            movement.x = (movement.x + 1000) % 1000;
-            movement.y = (movement.y + 1000) % 1000;
-            document.getElementById('coords').textContent = `${Math.floor(movement.x)}, ${Math.floor(movement.y)}`;
+            // Update coordinates only when movement occurs
+            if (updateCoords) {
+                movement.x = (movement.x + 1000) % 1000;
+                movement.y = (movement.y + 1000) % 1000;
+                document.getElementById('coords').textContent = `${Math.floor(movement.x)}, ${Math.floor(movement.y)}`;
+            }
             
             // Time
             const now = new Date();
@@ -1102,9 +1104,12 @@
             if (currentScene === 'desert') drawDesert();
             if (currentScene === 'ocean') drawOcean();
             
-            // Update HUD periodically
+            // Update time display periodically
             if (animationFrame % 60 === 0) {
-                updateHUD();
+                const now = new Date();
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                document.getElementById('time').textContent = `${hours}:${minutes}`;
             }
             
             requestAnimationFrame(animate);
@@ -1129,23 +1134,21 @@
             
             switch(direction) {
                 case 'up':
+                    movement.y -= 10;
                     if (currentScene === 'space' || currentScene === 'mountain') {
-                        movement.y -= 10;
                         altitude += 100;
                         message = '⬆️ ASCENDING';
                     } else {
-                        movement.y -= 10;
                         speed += 10;
                         message = '⬆️ MOVING FORWARD';
                     }
                     break;
                 case 'down':
+                    movement.y += 10;
                     if (currentScene === 'space' || currentScene === 'mountain') {
-                        movement.y += 10;
                         altitude = Math.max(0, altitude - 100);
                         message = '⬇️ DESCENDING';
                     } else {
-                        movement.y += 10;
                         speed = Math.max(0, speed - 10);
                         message = '⬇️ MOVING BACKWARD';
                     }
@@ -1162,8 +1165,8 @@
                     break;
             }
             
-            // Update HUD with new values
-            updateHUD();
+            // Update HUD with new values and coordinates
+            updateHUD(false, true);
             
             // Show movement feedback
             movementFeedback.textContent = message;
@@ -1225,7 +1228,7 @@
         });
 
         // Initialize HUD and start animation
-        updateHUD(true);
+        updateHUD(true, true);
         animate();
     </script>
 </body>
